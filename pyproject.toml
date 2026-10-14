@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "credit-default"
-version = "1.2.0"
+version = "1.3.0"
 description = "Credit card default risk scoring with modern tree ensembles and calibrated thresholds"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -23,6 +23,7 @@ dependencies = [
   "joblib>=1.3",
   "xlrd>=2.0",
   "openpyxl>=3.1",
+  "streamlit>=1.32",
 ]
 
 [project.optional-dependencies]

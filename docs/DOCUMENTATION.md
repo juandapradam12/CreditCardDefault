@@ -53,11 +53,15 @@ CreditCardDefault/
 │   ├── calibration.py   # isotonic probability calibration
 │   ├── explain.py       # SHAP global / local explanations
 │   └── train.py         # comparison / artifact export
+├── app/
+│   └── streamlit_app.py # interactive scoring + SHAP demo
 ├── scripts/
 │   ├── train_models.py
 │   ├── predict_example.py
-│   └── explain_model.py
+│   ├── explain_model.py
+│   └── run_demo.py
 ├── tests/               # pytest smoke suite
+├── .github/workflows/ci.yml
 ├── notebooks/
 │   ├── credit_default_risk_modeling.ipynb   # enhanced analysis
 │   └── original_default_of_credit_card_clients.ipynb
@@ -147,13 +151,24 @@ python scripts/train_models.py --fp-cost 1 --fn-cost 10
 
 TreeExplainer is used when the unwrapped estimator supports it; otherwise a KernelExplainer fallback is available.
 
-### 4.8 Automated tests
+### 4.8 Automated tests and CI
 
 ```bash
 pytest -q
 ```
 
-Coverage includes feature-shape invariants, cost-threshold behavior, calibration round-trips, metric floors on a data subset, and a SHAP smoke test.
+Coverage includes feature-shape invariants, cost-threshold behavior, calibration round-trips, metric floors on a data subset, SHAP smoke tests, and scoring helpers used by the Streamlit app.
+
+GitHub Actions (`.github/workflows/ci.yml`) runs the same suite on pushes/PRs and smoke-imports the saved scoring artifact.
+
+### 4.9 Streamlit demo
+
+```bash
+python scripts/run_demo.py
+# equivalent: streamlit run app/streamlit_app.py
+```
+
+The demo lets you pick a client ID, choose the cost-sensitive or F1 threshold policy, view the calibrated default probability / decision, and inspect local SHAP drivers.
 
 ## 5. Benchmark results
 
@@ -194,6 +209,9 @@ python scripts/train_models.py
 python scripts/predict_example.py
 python scripts/predict_example.py --explain-id 1
 
+# Interactive demo
+python scripts/run_demo.py
+
 # Rebuild SHAP only
 python scripts/explain_model.py
 
@@ -231,7 +249,7 @@ print(local_explanation(pipe, X.iloc[[0]]))
 - PAY codes are treated as ordinal; a pure categorical encoding could be compared.
 - Default cost weights (`FN=5×FP`) are illustrative — replace with portfolio loss/collections economics.
 - A temporal split would be preferable if true statement dates were available.
-- Optional extensions: Optuna tuning, CatBoost, Streamlit scoring UI, GitHub Actions CI.
+- Optional extensions: Optuna tuning, CatBoost / soft-voting ensemble, fairness slice reports.
 
 ## 9. References
 

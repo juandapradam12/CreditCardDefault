@@ -27,7 +27,8 @@ This repository shows how to do that end-to-end on a public benchmark of **30,00
 - **Cost-sensitive decisions** — optimize `FP_cost * FP + FN_cost * FN` (default FN five times costlier than FP)
 - **Calibrated probabilities** — isotonic calibration on the winning model for decisioning / pricing use
 - **SHAP explainability** — global feature drivers plus per-client local breakdowns
-- **Automated tests** — feature, metric, calibration, and SHAP smoke tests via `pytest`
+- **Automated tests + CI** — `pytest` smoke suite and GitHub Actions on push/PR
+- **Streamlit demo** — pick a client, see calibrated probability, cost/F1 decision, and SHAP drivers
 - **Reproducible package** — `src/credit_default` + CLI scripts + saved leaderboard / model artifacts
 - **Notebooks** — enhanced analysis plus the preserved original exploratory notebook
 
@@ -69,6 +70,9 @@ python scripts/train_models.py
 python scripts/predict_example.py
 python scripts/predict_example.py --explain-id 1
 
+# Interactive Streamlit demo (probability + decision + SHAP)
+python scripts/run_demo.py
+
 # Rebuild global SHAP artifacts
 python scripts/explain_model.py
 
@@ -92,9 +96,11 @@ jupyter notebook notebooks/credit_default_risk_modeling.ipynb
 
 ```text
 data/                  # CSV + original Excel dataset
-src/credit_default/    # load → features → models → calibrate → explain → train
+src/credit_default/    # load → features → models → calibrate → explain → score
+app/streamlit_app.py   # interactive scoring demo
 scripts/               # CLI entrypoints
 tests/                 # pytest smoke suite
+.github/workflows/ci.yml
 notebooks/             # enhanced + original notebooks
 artifacts/             # leaderboard, metrics, SHAP plots, best_model.joblib
 docs/DOCUMENTATION.md  # full methodology write-up
