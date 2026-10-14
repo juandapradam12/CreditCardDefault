@@ -11,6 +11,7 @@ venv/
 .DS_Store
 # Keep metrics CSVs/JSON in git; ignore bulky local experiment dumps.
 artifacts/experiments/
+catboost_info/
 *.pkl
 .pytest_cache/
 .mypy_cache/
