@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main, "cursor/**"]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  test:
+    name: pytest
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run test suite
+        env:
+          PYTHONPATH: src
+        run: pytest -q
+
+      - name: Scoring helper smoke import
+        env:
+          PYTHONPATH: src
+        run: |
+          python - <<'PY'
+          from credit_default.scoring import load_bundle, load_client_table, score_client_frame
+          bundle = load_bundle()
+          raw = load_client_table().head(1)
+          out = score_client_frame(bundle, raw, policy="cost")
+          assert "default_probability" in out.columns
+          print("scoring ok", float(out["default_probability"].iloc[0]))
+          PY
