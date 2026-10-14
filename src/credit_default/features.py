@@ -77,6 +77,19 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     # Soft signals of stress: high utilization + recent delays.
     out["STRESS_SCORE"] = out["UTIL_MEAN"] * (1.0 + out["PAY_MEAN"].clip(lower=0))
 
+    # Recent delinquency streak (counting backward from the most recent month).
+    streak = np.zeros(len(out), dtype=float)
+    active = np.ones(len(out), dtype=bool)
+    for col in PAY_COLS:
+        late = out[col].to_numpy() > 0
+        streak = streak + (active & late)
+        active = active & late
+    out["LATE_STREAK"] = streak
+    out["PAY1_x_UTIL1"] = out["PAY_1"] * out["UTIL_1"]
+    out["PAY1_x_LOG_LIMIT"] = out["PAY_1"] * np.log1p(out["LIMIT_BAL"])
+    out["BILL_TO_PAY_GAP1"] = out["BILL_AMT1"] - out["PAY_AMT1"]
+    out["PAY_AMT_TREND"] = out["PAY_AMT1"] - out["PAY_AMT6"]
+
     drop_cols = [c for c in ["ID", "default"] if c in out.columns]
     return out.drop(columns=drop_cols)
 

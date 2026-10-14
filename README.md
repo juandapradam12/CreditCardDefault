@@ -6,8 +6,8 @@ This project is a complete, reproducible machine-learning pipeline that predicts
 
 <p align="center">
   <img alt="default risk concept" src="https://img.shields.io/badge/task-binary%20classification-0B6E4F?style=for-the-badge" />
-  <img alt="best model" src="https://img.shields.io/badge/best%20model-XGBoost-1B4965?style=for-the-badge" />
-  <img alt="roc auc" src="https://img.shields.io/badge/hold--out%20ROC--AUC-0.777-5FA8D3?style=for-the-badge" />
+  <img alt="best model" src="https://img.shields.io/badge/best%20model-soft%20vote%20ensemble-1B4965?style=for-the-badge" />
+  <img alt="roc auc" src="https://img.shields.io/badge/hold--out%20ROC--AUC-0.780-5FA8D3?style=for-the-badge" />
 </p>
 
 ---
@@ -16,26 +16,35 @@ This project is a complete, reproducible machine-learning pipeline that predicts
 
 Missed defaults are expensive. Over-flagging good customers is also expensive. A useful credit-risk model must do more than maximize accuracy on an imbalanced dataset — it must **rank risky accounts well** and expose a **tunable operating point** for collections, underwriting overlays, or early-warning workflows.
 
-This repository shows how to do that end-to-end on a public benchmark of **30,000 credit-card clients** (~22% default rate), with feature engineering, calibrated boosting models, cost-sensitive thresholds, SHAP explanations, a Streamlit demo, and CI-tested tooling.
+This repository shows how to do that end-to-end on a public benchmark of **30,000 credit-card clients** (~22% default rate), with feature engineering, tuned boosting models, ensembles, calibrated probabilities, cost-sensitive thresholds, SHAP explanations, a Streamlit demo, and CI-tested tooling.
 
 ## Headline results
 
-Hold-out test metrics (`random_state=1738`):
+On this dataset, published boosting baselines typically land around **ROC-AUC 0.77–0.79**. Ranking quality is the primary score; precision/recall depend on the chosen threshold.
 
-| Model | ROC-AUC | PR-AUC | F1 | Recall | Precision |
-|---|---:|---:|---:|---:|---:|
-| **XGBoost (best)** | **0.777** | **0.555** | **0.536** | 0.541 | 0.531 |
-| HistGradientBoosting | 0.776 | 0.550 | 0.534 | 0.530 | 0.539 |
-| LightGBM | 0.773 | 0.552 | 0.525 | 0.588 | 0.475 |
-| Extra Trees | 0.773 | 0.546 | 0.533 | 0.529 | 0.538 |
-| Random Forest | 0.772 | 0.548 | 0.533 | 0.550 | 0.518 |
-| Logistic Regression | 0.752 | 0.499 | 0.526 | 0.563 | 0.494 |
+Hold-out ranking metrics (`random_state=1738`):
 
-On the winning XGBoost model:
+| Model | ROC-AUC | PR-AUC | KS |
+|---|---:|---:|---:|
+| **Soft-vote ensemble (best)** | **0.780** | **0.556** | **0.420** |
+| Stacking ensemble | 0.779 | 0.555 | 0.424 |
+| CatBoost | 0.779 | 0.553 | 0.422 |
+| XGBoost (Optuna-tuned) | 0.779 | 0.554 | 0.418 |
+| LightGBM | 0.777 | 0.556 | 0.410 |
+| HistGradientBoosting | 0.777 | 0.549 | 0.418 |
+| Random Forest | 0.772 | 0.550 | 0.416 |
+| Logistic Regression | 0.759 | 0.511 | 0.413 |
 
-- **Calibration**: hold-out Brier **0.175 → 0.135** after isotonic calibration
-- **Cost policy** (FN cost = 5× FP): threshold ≈ **0.17**, test recall ≈ **0.75** at expected cost **4222**
-- **Top SHAP drivers**: `PAY_MAX`, `WORST_RECENT`, `PAY_1`, `PAY_AMT1`, `LIMIT_BAL`
+Calibrated soft-vote operating points on the hold-out set:
+
+| Policy | Threshold | Precision | Recall | F1 |
+|---|---:|---:|---:|---:|
+| F1-optimized | 0.30 | 0.545 | 0.531 | 0.538 |
+| Cost-sensitive (FN=5×FP) | 0.20 | 0.419 | 0.672 | 0.516 |
+
+- **Calibration**: Brier **0.175 → 0.135** after isotonic calibration
+- **3-fold CV ROC-AUC** for the soft-vote ensemble: **0.790**
+- Cost-sensitive mode trades precision for higher recall on purpose (catch more defaults)
 
 ## Quickstart
 

@@ -119,7 +119,10 @@ def compare_models(
                 "cv_f1": oof_metrics["f1"],
                 "test_roc_auc": holdout["roc_auc"],
                 "test_pr_auc": holdout["pr_auc"],
+                "test_ks": holdout["ks"],
                 "test_f1": holdout_f1["f1"],
+                "test_recall_f1": holdout_f1["recall"],
+                "test_precision_f1": holdout_f1["precision"],
                 "test_recall_cost": holdout["recall"],
                 "test_precision_cost": holdout["precision"],
                 "test_expected_cost": holdout["expected_cost"],
@@ -129,8 +132,9 @@ def compare_models(
             }
         )
         print(
-            f"  done — test ROC-AUC={holdout['roc_auc']:.4f}, "
-            f"PR-AUC={holdout['pr_auc']:.4f}, cost={holdout['expected_cost']:.0f}",
+            f"  done — ROC-AUC={holdout['roc_auc']:.4f}, "
+            f"PR-AUC={holdout['pr_auc']:.4f}, KS={holdout['ks']:.4f}, "
+            f"F1={holdout_f1['f1']:.4f}",
             flush=True,
         )
 
