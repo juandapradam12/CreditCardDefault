@@ -173,7 +173,9 @@ The demo lets you pick a client ID, choose the cost-sensitive or F1 threshold po
 
 ## 5. Benchmark results
 
-Hold-out ranking results from the model comparison stage (`random_state=1738`). On this UCI benchmark, competitive published results are typically **ROC-AUC ≈ 0.77–0.79**; gains beyond that are usually small.
+Hold-out ranking results from the model comparison stage (`random_state=1738`).
+
+**Empirical benchmark range:** modern published ML results on this same UCI Taiwan file typically report **ROC-AUC ≈ 0.77–0.79**. That is an observed band (recent delinquency dominates the available features), not a mathematical proof of a hard ceiling. This repo’s soft-vote hold-out **0.780** / CV **0.790** sits inside that band; see the README for cited public comparisons.
 
 | Model | ROC-AUC | PR-AUC | KS |
 |---|---:|---:|---:|

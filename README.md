@@ -1,8 +1,10 @@
 # Credit Card Default Risk Scoring
 
-### Turn six months of repayment history into an actionable default probability
+### Who is about to miss next month’s payment — and what should you do about it?
 
-This project is a complete, reproducible machine-learning pipeline that predicts whether a revolving credit client will **default next month** on the UCI Taiwan credit-card dataset. It delivers a portfolio-ready scoring workflow: engineered risk features, imbalance-aware models, **isotonic probability calibration**, **cost-sensitive thresholds**, **SHAP explainability**, and exportable artifacts.
+Every month, a lender stares at the same tradeoff: chase too few accounts and credit losses pile up; chase too many and you burn cash harassing customers who would have paid. Accuracy on a dataset where only ~22% default is a trap — a naive “nobody defaults” rule is already ~78% accurate and completely useless.
+
+This repository turns six months of repayment, bill, and payment history from the UCI Taiwan credit-card portfolio (**30,000 clients**) into a **next-month default probability**, then makes that score usable: calibrated for decisioning, tunable for business cost, and explainable enough to show *why* an account was flagged.
 
 <p align="center">
   <img alt="default risk concept" src="https://img.shields.io/badge/task-binary%20classification-0B6E4F?style=for-the-badge" />
@@ -12,15 +14,13 @@ This project is a complete, reproducible machine-learning pipeline that predicts
 
 ---
 
-## Why this matters
+## Why ranking beats raw accuracy
 
-Missed defaults are expensive. Over-flagging good customers is also expensive. A useful credit-risk model must do more than maximize accuracy on an imbalanced dataset — it must **rank risky accounts well** and expose a **tunable operating point** for collections, underwriting overlays, or early-warning workflows.
-
-This repository shows how to do that end-to-end on a public benchmark of **30,000 credit-card clients** (~22% default rate), with feature engineering, tuned boosting models, ensembles, calibrated probabilities, cost-sensitive thresholds, SHAP explanations, a Streamlit demo, and CI-tested tooling.
+A useful credit-risk model must **rank risky accounts well** and expose a **tunable operating point** for collections or early-warning workflows. Missing a default and bothering a good customer are not equally expensive — so the cutoff is a policy choice, not a fixed 0.5.
 
 ## Headline results
 
-On this dataset, published boosting baselines typically land around **ROC-AUC 0.77–0.79**. Ranking quality is the primary score; precision/recall depend on the chosen threshold.
+Ranking quality is the primary score here; precision/recall change with the threshold you pick.
 
 Hold-out ranking metrics (`random_state=1738`):
 
@@ -45,6 +45,21 @@ Calibrated soft-vote operating points on the hold-out set:
 - **Calibration**: Brier **0.175 → 0.135** after isotonic calibration
 - **3-fold CV ROC-AUC** for the soft-vote ensemble: **0.790**
 - Cost-sensitive mode trades precision for higher recall on purpose (catch more defaults)
+
+### What “good” looks like on this dataset
+
+There is no proven mathematical ceiling, but **modern published results on this same UCI Taiwan file repeatedly land around ROC-AUC 0.77–0.79**. That range is an empirical benchmark, not a hard limit: with only six months of PAY / BILL / PAY_AMT history plus basic demographics, most of the signal sits in recent delinquency, so extra model complexity usually yields small hold-out gains.
+
+Examples from public work on this dataset:
+
+| Source | Reported ROC-AUC |
+|---|---:|
+| XGBoost credit-risk study (Morgan State / related write-up) | ~0.775 |
+| Calibration + rejection study on UCI clients (JACS, 2025) | 0.778 |
+| Comparative data-mining study (XGBoost / LightGBM) | 0.779 / 0.790 |
+| This repo — soft-vote ensemble (hold-out / 3-fold CV) | **0.780 / 0.790** |
+
+So 0.78 hold-out here is competitive with strong published baselines on the same features — not a weak result dressed up with metrics. Jumping to 0.85+ without new information would usually mean leakage, an odd split, or a different evaluation setup.
 
 ## Quickstart
 
