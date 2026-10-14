@@ -27,18 +27,33 @@ def _transformed_frame(pipeline, X: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(Xt, columns=clean, index=getattr(X, "index", None))
 
 
+def _prefer_tree_estimator(estimator):
+    """Pick a tree booster from a voting/stacking ensemble when possible."""
+    named = getattr(estimator, "named_estimators_", None)
+    if named:
+        for key in ("xgb", "xgboost", "cat", "catboost", "lgb", "lightgbm"):
+            if key in named and named[key] is not None:
+                return named[key]
+        for est in named.values():
+            if est is not None:
+                return est
+    estimators = getattr(estimator, "estimators_", None)
+    if estimators:
+        return estimators[0]
+    return estimator
+
+
 def _unwrap_estimator(pipeline):
     """Return the underlying predictive estimator (unwrap calibration if present)."""
     model = pipeline.named_steps["model"]
     # CalibratedClassifierCV stores fitted calibrators per fold.
     if hasattr(model, "calibrated_classifiers_") and model.calibrated_classifiers_:
-        # Use the first fold's base estimator for TreeExplainer compatibility.
         first = model.calibrated_classifiers_[0]
         if hasattr(first, "estimator"):
-            return first.estimator
-        if hasattr(first, "base_estimator"):
-            return first.base_estimator
-    return model
+            model = first.estimator
+        elif hasattr(first, "base_estimator"):
+            model = first.base_estimator
+    return _prefer_tree_estimator(model)
 
 
 def explain_model(

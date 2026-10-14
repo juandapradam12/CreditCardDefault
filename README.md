@@ -1,57 +1,65 @@
 # Credit Card Default Risk Scoring
 
-### Turn six months of repayment history into an actionable default probability
+### Who is about to miss next month’s payment — and what should you do about it?
 
-This project is a complete, reproducible machine-learning pipeline that predicts whether a revolving credit client will **default next month**. It upgrades a classic tree-based student analysis of the UCI Taiwan credit-card dataset into a portfolio-ready scoring workflow: engineered risk features, imbalance-aware models, **isotonic probability calibration**, **cost-sensitive thresholds**, **SHAP explainability**, and exportable artifacts.
+Every month, a lender stares at the same tradeoff: chase too few accounts and credit losses pile up; chase too many and you burn cash harassing customers who would have paid. Accuracy on a dataset where only ~22% default is a trap — a naive “nobody defaults” rule is already ~78% accurate and completely useless.
+
+This repository turns six months of repayment, bill, and payment history from the UCI Taiwan credit-card portfolio (**30,000 clients**) into a **next-month default probability**, then makes that score usable: calibrated for decisioning, tunable for business cost, and explainable enough to show *why* an account was flagged.
 
 <p align="center">
   <img alt="default risk concept" src="https://img.shields.io/badge/task-binary%20classification-0B6E4F?style=for-the-badge" />
-  <img alt="best model" src="https://img.shields.io/badge/best%20model-XGBoost-1B4965?style=for-the-badge" />
-  <img alt="roc auc" src="https://img.shields.io/badge/hold--out%20ROC--AUC-0.777-5FA8D3?style=for-the-badge" />
+  <img alt="best model" src="https://img.shields.io/badge/best%20model-soft%20vote%20ensemble-1B4965?style=for-the-badge" />
+  <img alt="roc auc" src="https://img.shields.io/badge/hold--out%20ROC--AUC-0.780-5FA8D3?style=for-the-badge" />
 </p>
 
 ---
 
-## Why this matters
+## Why ranking beats raw accuracy
 
-Missed defaults are expensive. Over-flagging good customers is also expensive. A useful credit-risk model must do more than maximize accuracy on an imbalanced dataset — it must **rank risky accounts well** and expose a **tunable operating point** for collections, underwriting overlays, or early-warning workflows.
-
-This repository shows how to do that end-to-end on a public benchmark of **30,000 credit-card clients** (~22% default rate).
-
-## What you get
-
-- **Business-ready framing** — predict next-month default from limit, demographics, and trailing repayment / bill / payment history
-- **Domain feature engineering** — utilization, payment-to-bill ratios, delay aggregates, and a composite stress score
-- **Modern model zoo** — Logistic Regression, Random Forest, Extra Trees, HistGradientBoosting, XGBoost, LightGBM
-- **Honest evaluation** — stratified splits, ROC-AUC / PR-AUC / Brier, with thresholds chosen without peeking at the test set
-- **Cost-sensitive decisions** — optimize `FP_cost * FP + FN_cost * FN` (default FN five times costlier than FP)
-- **Calibrated probabilities** — isotonic calibration on the winning model for decisioning / pricing use
-- **SHAP explainability** — global feature drivers plus per-client local breakdowns
-- **Automated tests + CI** — `pytest` smoke suite and GitHub Actions on push/PR
-- **Streamlit demo** — pick a client, see calibrated probability, cost/F1 decision, and SHAP drivers
-- **Reproducible package** — `src/credit_default` + CLI scripts + saved leaderboard / model artifacts
-- **Notebooks** — enhanced analysis plus the preserved original exploratory notebook
+A useful credit-risk model must **rank risky accounts well** and expose a **tunable operating point** for collections or early-warning workflows. Missing a default and bothering a good customer are not equally expensive — so the cutoff is a policy choice, not a fixed 0.5.
 
 ## Headline results
 
-Hold-out test metrics (`random_state=1738`):
+Ranking quality is the primary score here; precision/recall change with the threshold you pick.
 
-| Model | ROC-AUC | PR-AUC | F1 | Recall | Precision |
-|---|---:|---:|---:|---:|---:|
-| **XGBoost (best)** | **0.777** | **0.555** | **0.536** | 0.541 | 0.531 |
-| HistGradientBoosting | 0.776 | 0.550 | 0.534 | 0.530 | 0.539 |
-| LightGBM | 0.773 | 0.552 | 0.525 | 0.588 | 0.475 |
-| Extra Trees | 0.773 | 0.546 | 0.533 | 0.529 | 0.538 |
-| Random Forest | 0.772 | 0.548 | 0.533 | 0.550 | 0.518 |
-| Logistic Regression | 0.752 | 0.499 | 0.526 | 0.563 | 0.494 |
+Hold-out ranking metrics (`random_state=1738`):
 
-Versus the original untuned Random Forest baseline on raw features (**ROC-AUC ≈ 0.757**, default recall ≈ **0.36** at threshold 0.5), the enhanced pipeline improves ranking quality and recovers a far more usable precision/recall balance after threshold tuning.
+| Model | ROC-AUC | PR-AUC | KS |
+|---|---:|---:|---:|
+| **Soft-vote ensemble (best)** | **0.780** | **0.556** | **0.420** |
+| Stacking ensemble | 0.779 | 0.555 | 0.424 |
+| CatBoost | 0.779 | 0.553 | 0.422 |
+| XGBoost (Optuna-tuned) | 0.779 | 0.554 | 0.418 |
+| LightGBM | 0.777 | 0.556 | 0.410 |
+| HistGradientBoosting | 0.777 | 0.549 | 0.418 |
+| Random Forest | 0.772 | 0.550 | 0.416 |
+| Logistic Regression | 0.759 | 0.511 | 0.413 |
 
-Post-selection upgrades on the winning XGBoost model:
+Calibrated soft-vote operating points on the hold-out set:
 
-- **Calibration**: hold-out Brier **0.175 → 0.135** after isotonic calibration
-- **Cost policy** (FN cost = 5× FP): threshold ≈ **0.17**, test recall ≈ **0.75** at expected cost **4222**
-- **Top SHAP drivers**: `PAY_MAX`, `WORST_RECENT`, `PAY_1`, `PAY_AMT1`, `LIMIT_BAL`
+| Policy | Threshold | Precision | Recall | F1 |
+|---|---:|---:|---:|---:|
+| F1-optimized | 0.30 | 0.545 | 0.531 | 0.538 |
+| Cost-sensitive (FN=5×FP) | 0.20 | 0.419 | 0.672 | 0.516 |
+
+- **Calibration**: Brier **0.175 → 0.135** after isotonic calibration
+- **3-fold CV ROC-AUC** for the soft-vote ensemble: **0.790**
+- Cost-sensitive mode trades precision for higher recall on purpose (catch more defaults)
+
+### What “good” looks like on this dataset
+
+There is no proven mathematical ceiling, but **modern published results on this same UCI Taiwan file repeatedly land around ROC-AUC 0.77–0.79**. That range is an empirical benchmark, not a hard limit: with only six months of PAY / BILL / PAY_AMT history plus basic demographics, most of the signal sits in recent delinquency, so extra model complexity usually yields small hold-out gains.
+
+Examples from public work on this dataset:
+
+| Source | Reported ROC-AUC |
+|---|---:|
+| XGBoost credit-risk study (Morgan State / related write-up) | ~0.775 |
+| Calibration + rejection study on UCI clients (JACS, 2025) | 0.778 |
+| Comparative data-mining study (XGBoost / LightGBM) | 0.779 / 0.790 |
+| This repo — soft-vote ensemble (hold-out / 3-fold CV) | **0.780 / 0.790** |
+
+So 0.78 hold-out here is competitive with strong published baselines on the same features — not a weak result dressed up with metrics. Jumping to 0.85+ without new information would usually mean leakage, an odd split, or a different evaluation setup.
 
 ## Quickstart
 
@@ -95,13 +103,13 @@ jupyter notebook notebooks/credit_default_risk_modeling.ipynb
 ## Project structure
 
 ```text
-data/                  # CSV + original Excel dataset
+data/                  # CSV + Excel dataset
 src/credit_default/    # load → features → models → calibrate → explain → score
 app/streamlit_app.py   # interactive scoring demo
 scripts/               # CLI entrypoints
 tests/                 # pytest smoke suite
 .github/workflows/ci.yml
-notebooks/             # enhanced + original notebooks
+notebooks/             # analysis notebooks
 artifacts/             # leaderboard, metrics, SHAP plots, best_model.joblib
 docs/DOCUMENTATION.md  # full methodology write-up
 ```
@@ -123,18 +131,15 @@ print(result["best_model"])
 print(result["leaderboard"].head())
 ```
 
-## Ideal use cases
+## Use cases
 
-- Portfolio **early-warning** lists for accounts likely to roll delinquent
-- Offline **champion/challenger** experiments for risk scorecards
-- Teaching / portfolio piece demonstrating **imbalanced classification done properly**
-- Explainable, cost-aware credit scoring demos for interviews and stakeholder reviews
+- Early-warning lists for revolving accounts likely to miss the next payment
+- Champion/challenger experiments for credit risk scorecards
+- Cost-aware default scoring with explainable drivers for risk and collections workflows
 
 ## Documentation
 
-Deep dive on data quirks, feature design, validation protocol, limitations, and extension ideas:
-
-**[docs/DOCUMENTATION.md](docs/DOCUMENTATION.md)**
+Methodology details: **[docs/DOCUMENTATION.md](docs/DOCUMENTATION.md)**
 
 ## Dataset credit
 
@@ -144,8 +149,4 @@ Data hosted by the [UCI Machine Learning Repository](https://archive.ics.uci.edu
 
 ## Author
 
-**Juan David Prada Malagon** — data scientist. Original exploratory analysis modernized into a reproducible risk-scoring package.
-
----
-
-If this project is useful for your hiring review, teaching material, or risk-modeling sandbox, star the repo and adapt the threshold to your own false-positive / false-negative cost ratio.
+**Juan David Prada Malagon**

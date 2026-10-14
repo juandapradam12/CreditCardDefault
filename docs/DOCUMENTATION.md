@@ -96,17 +96,18 @@ Categorical fields (`EDUCATION`, `MARRIAGE`) are one-hot encoded; numeric fields
 | Model | Role |
 |---|---|
 | Logistic Regression (balanced) | Strong linear baseline / interpretable coefficients after scaling |
-| Random Forest / Extra Trees | Bagged trees with class weighting (original project family) |
+| Random Forest / Extra Trees | Bagged trees with class weighting |
 | HistGradientBoosting | Fast sklearn boosting baseline |
-| XGBoost / LightGBM | Modern gradient boosting with imbalance handling |
+| XGBoost (Optuna-tuned) / LightGBM / CatBoost | Gradient boosting with imbalance handling |
+| Soft-vote / stacking ensembles | Combine the boosters for a small but stable ranking lift |
 
-Improvements versus the original notebook:
+Design choices in the training pipeline:
 
-- stratified splits instead of an unstratified 70/30 split
-- ranking metrics (ROC-AUC, PR-AUC), not only classification reports
+- stratified train/test splits and stratified cross-validation
+- ranking metrics (ROC-AUC, PR-AUC) alongside operating-point metrics
 - class-weight / `scale_pos_weight` for the minority default class
 - engineered repayment-stress features
-- F1-oriented threshold tuning instead of default 0.5 / tiny forests that inflate recall
+- F1 and expected-cost threshold tuning (not a fixed 0.5 cutoff)
 - reproducible package + CLI artifacts
 
 ### 4.4 Metrics
@@ -172,20 +173,22 @@ The demo lets you pick a client ID, choose the cost-sensitive or F1 threshold po
 
 ## 5. Benchmark results
 
-Hold-out ranking results from the model comparison stage (`random_state=1738`):
+Hold-out ranking results from the model comparison stage (`random_state=1738`).
 
-| Model | ROC-AUC | PR-AUC | F1* | Recall* | Precision* |
-|---|---:|---:|---:|---:|---:|
-| **XGBoost** | **0.777** | **0.555** | **0.536** | 0.541 | 0.531 |
-| HistGradientBoosting | 0.776 | 0.550 | 0.534 | 0.530 | 0.539 |
-| LightGBM | 0.773 | 0.552 | 0.525 | 0.588 | 0.475 |
-| Extra Trees | 0.773 | 0.546 | 0.533 | 0.529 | 0.538 |
-| Random Forest | 0.772 | 0.548 | 0.533 | 0.550 | 0.518 |
-| Logistic Regression | 0.752 | 0.499 | 0.526 | 0.563 | 0.494 |
+**Empirical benchmark range:** modern published ML results on this same UCI Taiwan file typically report **ROC-AUC ≈ 0.77–0.79**. That is an observed band (recent delinquency dominates the available features), not a mathematical proof of a hard ceiling. This repo’s soft-vote hold-out **0.780** / CV **0.790** sits inside that band; see the README for cited public comparisons.
 
-\*F1 / precision / recall in this table are from the pre-calibration F1 operating point for comparability with the earlier release. After calibration, the exported artifact prefers the **cost-sensitive** threshold; see `artifacts/best_model_metrics.json` for the latest calibrated Brier score and expected cost.
+| Model | ROC-AUC | PR-AUC | KS |
+|---|---:|---:|---:|
+| **Soft-vote ensemble** | **0.780** | **0.556** | **0.420** |
+| Stacking ensemble | 0.779 | 0.555 | 0.424 |
+| CatBoost | 0.779 | 0.553 | 0.422 |
+| XGBoost (Optuna-tuned) | 0.779 | 0.554 | 0.418 |
+| LightGBM | 0.777 | 0.556 | 0.410 |
+| HistGradientBoosting | 0.777 | 0.549 | 0.418 |
+| Random Forest | 0.772 | 0.550 | 0.416 |
+| Logistic Regression | 0.759 | 0.511 | 0.413 |
 
-Original-style untuned Random Forest on raw/dummified columns (for reference): ROC-AUC ≈ 0.757 with default-class recall ≈ 0.36 at the 0.5 threshold.
+After calibration, the exported artifact defaults to the **cost-sensitive** threshold; F1-optimized metrics are also stored in `artifacts/best_model_metrics.json`.
 
 Artifacts:
 

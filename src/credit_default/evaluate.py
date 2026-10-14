@@ -50,6 +50,19 @@ def expected_cost(
     return float(fp_cost * fp + fn_cost * fn)
 
 
+def ks_statistic(y_true, y_prob) -> float:
+    """Kolmogorov–Smirnov statistic (max gap between score CDFs by class)."""
+    y_true = np.asarray(y_true).astype(int)
+    y_prob = np.asarray(y_prob, dtype=float)
+    order = np.argsort(y_prob)
+    y_sorted = y_true[order]
+    n_pos = max((y_true == 1).sum(), 1)
+    n_neg = max((y_true == 0).sum(), 1)
+    cdf_pos = np.cumsum(y_sorted == 1) / n_pos
+    cdf_neg = np.cumsum(y_sorted == 0) / n_neg
+    return float(np.max(np.abs(cdf_pos - cdf_neg)))
+
+
 def classification_metrics(
     y_true,
     y_prob,
@@ -72,6 +85,7 @@ def classification_metrics(
         "threshold": float(threshold),
         "roc_auc": float(roc_auc_score(y_true, y_prob)),
         "pr_auc": float(average_precision_score(y_true, y_prob)),
+        "ks": ks_statistic(y_true, y_prob),
         "accuracy": float(accuracy_score(y_true, y_pred)),
         "precision": float(precision_score(y_true, y_pred, zero_division=0)),
         "recall": float(recall_score(y_true, y_pred, zero_division=0)),
@@ -162,6 +176,7 @@ def metrics_table(
         or [
             "roc_auc",
             "pr_auc",
+            "ks",
             "f1",
             "recall",
             "precision",
