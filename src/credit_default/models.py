@@ -33,6 +33,9 @@ class FittedModel:
     pipeline: Pipeline
     best_threshold: float
     metrics: dict[str, float]
+    threshold_f1: float | None = None
+    threshold_cost: float | None = None
+    calibration: dict[str, float] | None = None
 
 
 def _pos_weight(y: np.ndarray) -> float:

@@ -49,15 +49,19 @@ CreditCardDefault/
 │   ├── data.py          # loading / light cleaning
 │   ├── features.py      # feature engineering + preprocessing
 │   ├── models.py        # model zoo
-│   ├── evaluate.py      # metrics + threshold tuning
+│   ├── evaluate.py      # metrics + F1/cost threshold tuning
+│   ├── calibration.py   # isotonic probability calibration
+│   ├── explain.py       # SHAP global / local explanations
 │   └── train.py         # comparison / artifact export
 ├── scripts/
 │   ├── train_models.py
-│   └── predict_example.py
+│   ├── predict_example.py
+│   └── explain_model.py
+├── tests/               # pytest smoke suite
 ├── notebooks/
 │   ├── credit_default_risk_modeling.ipynb   # enhanced analysis
 │   └── original_default_of_credit_card_clients.ipynb
-├── artifacts/           # leaderboard + fitted best model
+├── artifacts/           # leaderboard, calibrated model, SHAP plots
 └── docs/DOCUMENTATION.md
 ```
 
@@ -110,13 +114,52 @@ Because defaults are uncommon (~22%), accuracy alone is misleading.
 | ROC-AUC | Threshold-free ranking quality |
 | PR-AUC | Ranking quality under class imbalance |
 | Precision / Recall / F1 | Operating-point quality after threshold tuning |
+| Brier score | Probability calibration quality (lower is better) |
+| Expected cost | `fp_cost * FP + fn_cost * FN` at the chosen cutoff |
 | Specificity | Impact on non-default customers |
+
+### 4.5 Probability calibration
+
+After the leaderboard picks a winner on ranking metrics, that model is refit with **isotonic** `CalibratedClassifierCV`. We report Brier score before vs after on the hold-out test set. Calibrated scores are what get exported in `artifacts/best_model.joblib`.
+
+### 4.6 Cost-sensitive thresholds
+
+Two operating points are tuned on a held-out slice of the training data (not the test set):
+
+| Policy | Objective | Default use |
+|---|---|---|
+| `threshold_f1` | maximize F1 | balanced classification reporting |
+| `threshold_cost` | minimize `FP_cost * FP + FN_cost * FN` | business default in CLI / artifact `threshold` |
+
+Defaults: `FP_cost=1`, `FN_cost=5` (missing a default is five times costlier than a false alarm). Override via:
+
+```bash
+python scripts/train_models.py --fp-cost 1 --fn-cost 10
+```
+
+### 4.7 SHAP explainability
+
+`credit_default.explain` computes:
+
+- global mean \|SHAP\| importances → `artifacts/shap_feature_importance.csv`
+- summary bar chart → `artifacts/shap_summary.png`
+- local per-client drivers via `python scripts/predict_example.py --explain-id <ID>`
+
+TreeExplainer is used when the unwrapped estimator supports it; otherwise a KernelExplainer fallback is available.
+
+### 4.8 Automated tests
+
+```bash
+pytest -q
+```
+
+Coverage includes feature-shape invariants, cost-threshold behavior, calibration round-trips, metric floors on a data subset, and a SHAP smoke test.
 
 ## 5. Benchmark results
 
-Hold-out test results from `python scripts/train_models.py` (seed 1738):
+Hold-out ranking results from the model comparison stage (`random_state=1738`):
 
-| Model | ROC-AUC | PR-AUC | F1 | Recall | Precision |
+| Model | ROC-AUC | PR-AUC | F1* | Recall* | Precision* |
 |---|---:|---:|---:|---:|---:|
 | **XGBoost** | **0.777** | **0.555** | **0.536** | 0.541 | 0.531 |
 | HistGradientBoosting | 0.776 | 0.550 | 0.534 | 0.530 | 0.539 |
@@ -125,15 +168,17 @@ Hold-out test results from `python scripts/train_models.py` (seed 1738):
 | Random Forest | 0.772 | 0.548 | 0.533 | 0.550 | 0.518 |
 | Logistic Regression | 0.752 | 0.499 | 0.526 | 0.563 | 0.494 |
 
-Original-style untuned Random Forest on raw/dummified columns (for reference): ROC-AUC ≈ 0.757 with default-class recall ≈ 0.36 at the 0.5 threshold.
+\*F1 / precision / recall in this table are from the pre-calibration F1 operating point for comparability with the earlier release. After calibration, the exported artifact prefers the **cost-sensitive** threshold; see `artifacts/best_model_metrics.json` for the latest calibrated Brier score and expected cost.
 
-The enhanced XGBoost pipeline improves ranking quality and, with a tuned threshold (~0.59), recovers a much stronger precision/recall balance on defaults.
+Original-style untuned Random Forest on raw/dummified columns (for reference): ROC-AUC ≈ 0.757 with default-class recall ≈ 0.36 at the 0.5 threshold.
 
 Artifacts:
 
 - `artifacts/model_leaderboard.csv`
 - `artifacts/best_model_metrics.json`
 - `artifacts/best_model.joblib`
+- `artifacts/shap_feature_importance.csv`
+- `artifacts/shap_summary.png`
 
 ## 6. How to run
 
@@ -142,11 +187,18 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# Full model comparison + artifact export
+# Full comparison + calibration + SHAP
 python scripts/train_models.py
 
-# Score a few rows with the saved best model
+# Score a few rows / explain one client
 python scripts/predict_example.py
+python scripts/predict_example.py --explain-id 1
+
+# Rebuild SHAP only
+python scripts/explain_model.py
+
+# Tests
+pytest -q
 
 # Interactive exploration
 jupyter notebook notebooks/credit_default_risk_modeling.ipynb
@@ -156,30 +208,33 @@ jupyter notebook notebooks/credit_default_risk_modeling.ipynb
 
 ```python
 import joblib
-import pandas as pd
 from credit_default.data import basic_clean, load_raw
 from credit_default.features import engineer_features
+from credit_default.explain import local_explanation
 
 bundle = joblib.load("artifacts/best_model.joblib")
 pipe = bundle["pipeline"]
-threshold = bundle["threshold"]
+threshold = bundle["threshold"]  # cost-sensitive by default
 
 raw = basic_clean(load_raw()).head(5)
 X = engineer_features(raw)
 proba = pipe.predict_proba(X)[:, 1]
 pred = (proba >= threshold).astype(int)
+
+# Local drivers for the first scored client
+print(local_explanation(pipe, X.iloc[[0]]))
 ```
 
 ## 8. Limitations and next steps
 
 - The UCI file is a static public snapshot; production portfolios drift and need monitoring.
 - PAY codes are treated as ordinal; a pure categorical encoding could be compared.
-- Cost-sensitive thresholds (expected loss / collections cost) would beat F1 for business use.
-- Calibration (Platt / isotonic) would improve probability quality for pricing.
-- Model explainability (SHAP) would help credit officers trust individual scores.
+- Default cost weights (`FN=5×FP`) are illustrative — replace with portfolio loss/collections economics.
 - A temporal split would be preferable if true statement dates were available.
+- Optional extensions: Optuna tuning, CatBoost, Streamlit scoring UI, GitHub Actions CI.
 
 ## 9. References
 
 - Yeh, I. C., & Lien, C. H. (2009). The comparisons of data mining techniques for the predictive accuracy of probability of default of credit card clients. *Expert Systems with Applications*, 36(2), 2473–2480.
 - UCI Machine Learning Repository: Default of Credit Card Clients Dataset.
+- Lundberg, S. M., & Lee, S. I. (2017). A Unified Approach to Interpreting Model Predictions. *NeurIPS*.

@@ -2,7 +2,7 @@
 
 ### Turn six months of repayment history into an actionable default probability
 
-This project is a complete, reproducible machine-learning pipeline that predicts whether a revolving credit client will **default next month**. It upgrades a classic tree-based student analysis of the UCI Taiwan credit-card dataset into a portfolio-ready scoring workflow: engineered risk features, imbalance-aware models, threshold-tuned decisions, and exportable artifacts.
+This project is a complete, reproducible machine-learning pipeline that predicts whether a revolving credit client will **default next month**. It upgrades a classic tree-based student analysis of the UCI Taiwan credit-card dataset into a portfolio-ready scoring workflow: engineered risk features, imbalance-aware models, **isotonic probability calibration**, **cost-sensitive thresholds**, **SHAP explainability**, and exportable artifacts.
 
 <p align="center">
   <img alt="default risk concept" src="https://img.shields.io/badge/task-binary%20classification-0B6E4F?style=for-the-badge" />
@@ -23,8 +23,12 @@ This repository shows how to do that end-to-end on a public benchmark of **30,00
 - **Business-ready framing** — predict next-month default from limit, demographics, and trailing repayment / bill / payment history
 - **Domain feature engineering** — utilization, payment-to-bill ratios, delay aggregates, and a composite stress score
 - **Modern model zoo** — Logistic Regression, Random Forest, Extra Trees, HistGradientBoosting, XGBoost, LightGBM
-- **Honest evaluation** — stratified splits, ROC-AUC / PR-AUC, and F1-optimized thresholds chosen without peeking at the test set
-- **Reproducible package** — `src/credit_default` + CLI training script + saved leaderboard / model artifacts
+- **Honest evaluation** — stratified splits, ROC-AUC / PR-AUC / Brier, with thresholds chosen without peeking at the test set
+- **Cost-sensitive decisions** — optimize `FP_cost * FP + FN_cost * FN` (default FN five times costlier than FP)
+- **Calibrated probabilities** — isotonic calibration on the winning model for decisioning / pricing use
+- **SHAP explainability** — global feature drivers plus per-client local breakdowns
+- **Automated tests** — feature, metric, calibration, and SHAP smoke tests via `pytest`
+- **Reproducible package** — `src/credit_default` + CLI scripts + saved leaderboard / model artifacts
 - **Notebooks** — enhanced analysis plus the preserved original exploratory notebook
 
 ## Headline results
@@ -52,11 +56,24 @@ python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-# Train, compare models, export artifacts/
+# Train, calibrate, explain, export artifacts/
 python scripts/train_models.py
 
-# Score a sample of clients with the saved best model
+# Score sample clients (cost-sensitive threshold by default)
 python scripts/predict_example.py
+python scripts/predict_example.py --explain-id 1
+
+# Rebuild global SHAP artifacts
+python scripts/explain_model.py
+
+# Run automated tests
+pytest -q
+```
+
+Custom loss weights:
+
+```bash
+python scripts/train_models.py --fp-cost 1 --fn-cost 10
 ```
 
 Explore interactively:
@@ -69,10 +86,11 @@ jupyter notebook notebooks/credit_default_risk_modeling.ipynb
 
 ```text
 data/                  # CSV + original Excel dataset
-src/credit_default/    # load → features → models → evaluate → train
+src/credit_default/    # load → features → models → calibrate → explain → train
 scripts/               # CLI entrypoints
+tests/                 # pytest smoke suite
 notebooks/             # enhanced + original notebooks
-artifacts/             # leaderboard, metrics JSON, best_model.joblib
+artifacts/             # leaderboard, metrics, SHAP plots, best_model.joblib
 docs/DOCUMENTATION.md  # full methodology write-up
 ```
 
@@ -81,8 +99,9 @@ docs/DOCUMENTATION.md  # full methodology write-up
 1. **Load** the UCI credit-card default dataset
 2. **Engineer** repayment-stress features (utilization, delay summaries, payment ratios)
 3. **Train** imbalance-aware classifiers with stratified validation
-4. **Tune** the decision threshold on out-of-fold probabilities
-5. **Export** the winning model and a transparent leaderboard
+4. **Select** the best ranker, then **calibrate** probabilities (isotonic)
+5. **Tune** both F1 and expected-cost thresholds on a held-out train slice
+6. **Explain** with SHAP and **export** artifacts / leaderboard
 
 ```python
 from credit_default.train import run_training
@@ -97,7 +116,7 @@ print(result["leaderboard"].head())
 - Portfolio **early-warning** lists for accounts likely to roll delinquent
 - Offline **champion/challenger** experiments for risk scorecards
 - Teaching / portfolio piece demonstrating **imbalanced classification done properly**
-- Starting point for cost-sensitive or explainable credit models (SHAP, expected-loss thresholds)
+- Explainable, cost-aware credit scoring demos for interviews and stakeholder reviews
 
 ## Documentation
 
