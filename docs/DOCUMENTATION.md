@@ -96,17 +96,17 @@ Categorical fields (`EDUCATION`, `MARRIAGE`) are one-hot encoded; numeric fields
 | Model | Role |
 |---|---|
 | Logistic Regression (balanced) | Strong linear baseline / interpretable coefficients after scaling |
-| Random Forest / Extra Trees | Bagged trees with class weighting (original project family) |
+| Random Forest / Extra Trees | Bagged trees with class weighting |
 | HistGradientBoosting | Fast sklearn boosting baseline |
-| XGBoost / LightGBM | Modern gradient boosting with imbalance handling |
+| XGBoost / LightGBM | Gradient boosting with imbalance handling |
 
-Improvements versus the original notebook:
+Design choices in the training pipeline:
 
-- stratified splits instead of an unstratified 70/30 split
-- ranking metrics (ROC-AUC, PR-AUC), not only classification reports
+- stratified train/test splits and stratified cross-validation
+- ranking metrics (ROC-AUC, PR-AUC) alongside operating-point metrics
 - class-weight / `scale_pos_weight` for the minority default class
 - engineered repayment-stress features
-- F1-oriented threshold tuning instead of default 0.5 / tiny forests that inflate recall
+- F1 and expected-cost threshold tuning (not a fixed 0.5 cutoff)
 - reproducible package + CLI artifacts
 
 ### 4.4 Metrics
@@ -183,9 +183,7 @@ Hold-out ranking results from the model comparison stage (`random_state=1738`):
 | Random Forest | 0.772 | 0.548 | 0.533 | 0.550 | 0.518 |
 | Logistic Regression | 0.752 | 0.499 | 0.526 | 0.563 | 0.494 |
 
-\*F1 / precision / recall in this table are from the pre-calibration F1 operating point for comparability with the earlier release. After calibration, the exported artifact prefers the **cost-sensitive** threshold; see `artifacts/best_model_metrics.json` for the latest calibrated Brier score and expected cost.
-
-Original-style untuned Random Forest on raw/dummified columns (for reference): ROC-AUC ≈ 0.757 with default-class recall ≈ 0.36 at the 0.5 threshold.
+\*F1 / precision / recall in this table are from the pre-calibration F1 operating point used during model comparison. After calibration, the exported artifact prefers the **cost-sensitive** threshold; see `artifacts/best_model_metrics.json` for the latest calibrated Brier score and expected cost.
 
 Artifacts:
 

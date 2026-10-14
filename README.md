@@ -2,7 +2,7 @@
 
 ### Turn six months of repayment history into an actionable default probability
 
-This project is a complete, reproducible machine-learning pipeline that predicts whether a revolving credit client will **default next month**. It upgrades a classic tree-based student analysis of the UCI Taiwan credit-card dataset into a portfolio-ready scoring workflow: engineered risk features, imbalance-aware models, **isotonic probability calibration**, **cost-sensitive thresholds**, **SHAP explainability**, and exportable artifacts.
+This project is a complete, reproducible machine-learning pipeline that predicts whether a revolving credit client will **default next month** on the UCI Taiwan credit-card dataset. It delivers a portfolio-ready scoring workflow: engineered risk features, imbalance-aware models, **isotonic probability calibration**, **cost-sensitive thresholds**, **SHAP explainability**, and exportable artifacts.
 
 <p align="center">
   <img alt="default risk concept" src="https://img.shields.io/badge/task-binary%20classification-0B6E4F?style=for-the-badge" />
@@ -16,21 +16,7 @@ This project is a complete, reproducible machine-learning pipeline that predicts
 
 Missed defaults are expensive. Over-flagging good customers is also expensive. A useful credit-risk model must do more than maximize accuracy on an imbalanced dataset — it must **rank risky accounts well** and expose a **tunable operating point** for collections, underwriting overlays, or early-warning workflows.
 
-This repository shows how to do that end-to-end on a public benchmark of **30,000 credit-card clients** (~22% default rate).
-
-## What you get
-
-- **Business-ready framing** — predict next-month default from limit, demographics, and trailing repayment / bill / payment history
-- **Domain feature engineering** — utilization, payment-to-bill ratios, delay aggregates, and a composite stress score
-- **Modern model zoo** — Logistic Regression, Random Forest, Extra Trees, HistGradientBoosting, XGBoost, LightGBM
-- **Honest evaluation** — stratified splits, ROC-AUC / PR-AUC / Brier, with thresholds chosen without peeking at the test set
-- **Cost-sensitive decisions** — optimize `FP_cost * FP + FN_cost * FN` (default FN five times costlier than FP)
-- **Calibrated probabilities** — isotonic calibration on the winning model for decisioning / pricing use
-- **SHAP explainability** — global feature drivers plus per-client local breakdowns
-- **Automated tests + CI** — `pytest` smoke suite and GitHub Actions on push/PR
-- **Streamlit demo** — pick a client, see calibrated probability, cost/F1 decision, and SHAP drivers
-- **Reproducible package** — `src/credit_default` + CLI scripts + saved leaderboard / model artifacts
-- **Notebooks** — enhanced analysis plus the preserved original exploratory notebook
+This repository shows how to do that end-to-end on a public benchmark of **30,000 credit-card clients** (~22% default rate), with feature engineering, calibrated boosting models, cost-sensitive thresholds, SHAP explanations, a Streamlit demo, and CI-tested tooling.
 
 ## Headline results
 
@@ -45,9 +31,7 @@ Hold-out test metrics (`random_state=1738`):
 | Random Forest | 0.772 | 0.548 | 0.533 | 0.550 | 0.518 |
 | Logistic Regression | 0.752 | 0.499 | 0.526 | 0.563 | 0.494 |
 
-Versus the original untuned Random Forest baseline on raw features (**ROC-AUC ≈ 0.757**, default recall ≈ **0.36** at threshold 0.5), the enhanced pipeline improves ranking quality and recovers a far more usable precision/recall balance after threshold tuning.
-
-Post-selection upgrades on the winning XGBoost model:
+On the winning XGBoost model:
 
 - **Calibration**: hold-out Brier **0.175 → 0.135** after isotonic calibration
 - **Cost policy** (FN cost = 5× FP): threshold ≈ **0.17**, test recall ≈ **0.75** at expected cost **4222**
@@ -95,13 +79,13 @@ jupyter notebook notebooks/credit_default_risk_modeling.ipynb
 ## Project structure
 
 ```text
-data/                  # CSV + original Excel dataset
+data/                  # CSV + Excel dataset
 src/credit_default/    # load → features → models → calibrate → explain → score
 app/streamlit_app.py   # interactive scoring demo
 scripts/               # CLI entrypoints
 tests/                 # pytest smoke suite
 .github/workflows/ci.yml
-notebooks/             # enhanced + original notebooks
+notebooks/             # analysis notebooks
 artifacts/             # leaderboard, metrics, SHAP plots, best_model.joblib
 docs/DOCUMENTATION.md  # full methodology write-up
 ```
@@ -123,18 +107,15 @@ print(result["best_model"])
 print(result["leaderboard"].head())
 ```
 
-## Ideal use cases
+## Use cases
 
-- Portfolio **early-warning** lists for accounts likely to roll delinquent
-- Offline **champion/challenger** experiments for risk scorecards
-- Teaching / portfolio piece demonstrating **imbalanced classification done properly**
-- Explainable, cost-aware credit scoring demos for interviews and stakeholder reviews
+- Early-warning lists for revolving accounts likely to miss the next payment
+- Champion/challenger experiments for credit risk scorecards
+- Cost-aware default scoring with explainable drivers for risk and collections workflows
 
 ## Documentation
 
-Deep dive on data quirks, feature design, validation protocol, limitations, and extension ideas:
-
-**[docs/DOCUMENTATION.md](docs/DOCUMENTATION.md)**
+Methodology details: **[docs/DOCUMENTATION.md](docs/DOCUMENTATION.md)**
 
 ## Dataset credit
 
@@ -144,8 +125,4 @@ Data hosted by the [UCI Machine Learning Repository](https://archive.ics.uci.edu
 
 ## Author
 
-**Juan David Prada Malagon** — data scientist. Original exploratory analysis modernized into a reproducible risk-scoring package.
-
----
-
-If this project is useful for your hiring review, teaching material, or risk-modeling sandbox, star the repo and adapt the threshold to your own false-positive / false-negative cost ratio.
+**Juan David Prada Malagon**
