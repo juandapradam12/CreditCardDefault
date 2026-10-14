@@ -46,6 +46,12 @@ Hold-out test metrics (`random_state=1738`):
 
 Versus the original untuned Random Forest baseline on raw features (**ROC-AUC ≈ 0.757**, default recall ≈ **0.36** at threshold 0.5), the enhanced pipeline improves ranking quality and recovers a far more usable precision/recall balance after threshold tuning.
 
+Post-selection upgrades on the winning XGBoost model:
+
+- **Calibration**: hold-out Brier **0.175 → 0.135** after isotonic calibration
+- **Cost policy** (FN cost = 5× FP): threshold ≈ **0.17**, test recall ≈ **0.75** at expected cost **4222**
+- **Top SHAP drivers**: `PAY_MAX`, `WORST_RECENT`, `PAY_1`, `PAY_AMT1`, `LIMIT_BAL`
+
 ## Quickstart
 
 ```bash
